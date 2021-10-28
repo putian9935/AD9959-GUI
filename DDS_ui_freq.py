@@ -71,7 +71,7 @@ class MyTextBox():
     def __init__(self, pos, text=None, *args, **kwargs):
         self.ax = plt.axes(pos)
         self.tb = TextBox(self.ax, text, *args, **kwargs)
-        
+
         self.tb.set_val('%.3f'%kwargs['initial'])
 
 
@@ -98,7 +98,7 @@ class DDSSingleChannelBack:
         if not freq_init:
             freq_init = 57.6
         if not fine_step:
-            fine_step = (.01, 1)  # (freq., phase) pair 
+            fine_step = (.01, 1)  # (freq., phase) pair
 
         self.draw(freq_init)
 
@@ -113,8 +113,6 @@ class DDSSingleChannelBack:
         self.sl.slider.on_changed(self.slider_on_change)
         self.select.cbutton.on_clicked(self.select_callback)
         self.tb_freq.tb.on_submit(self.textbox_on_submit)
-
-        self.write_DDS = lambda *_: 1
 
         self.writer = writer
         self.write_DDS = self.writer.write_full
@@ -177,31 +175,31 @@ class DDSSingleChannelBack:
         self.sl.addAnnotate('Phase', (.5, 1.15), annotation_clip=False)
 
         # Type freq
-        tb_freq_x = .08 
+        tb_freq_x = .08
         tb_freq_y = .6
         tb_freq_width = .4
         tb_freq_height = .1
         self.tb_freq = MyTextBox([tb_freq_x, tb_freq_y, tb_freq_width, tb_freq_height], initial=freq_init)
         self.tb_freq.addAnnotate('Freq. (MHz)', (0, 1.15), annotation_clip=False)
-        
+
 
     def up_callback(self, event):
         if self.fine_type:
             self.cur_phase += self.fine_step[self.fine_type]
             self.write_DDS(self.cur_freq, self.cur_phase)
             self.update_slider()
-        else: 
+        else:
             self.cur_freq += self.fine_step[self.fine_type]
             self.write_DDS(self.cur_freq, self.cur_phase)
             self.update_tb()
-        
+
 
     def down_callback(self, event):
         if self.fine_type:
             self.cur_phase -= self.fine_step[self.fine_type]
             self.write_DDS(self.cur_freq, self.cur_phase)
             self.update_slider()
-        else: 
+        else:
             self.cur_freq -= self.fine_step[self.fine_type]
             self.write_DDS(self.cur_freq, self.cur_phase)
             self.update_tb()
@@ -215,13 +213,13 @@ class DDSSingleChannelBack:
         self.fine_type = index
 
         # whatever clicked, the on/off of it gets changed
-        if self.select.cbutton.lines[index][0].get_visible(): 
+        if self.select.cbutton.lines[index][0].get_visible():
             index = 1 - index
         for l in self.select.cbutton.lines[index]:
             l.set_visible(not l.get_visible())
-            
 
-    
+
+
     def textbox_on_submit(self, event):
         if not isfloat(event):
             setAxesFrameColor(self.tb_freq.tb.ax, 'red')
@@ -247,7 +245,5 @@ class DDSSingleChannelBack:
         input('Terminating program... \nIf you want to upload permanantly the DDS params, be sure to update current_settings.csv, upload v1.ino, and run write_DDS.py\n')
 
 
-
 if __name__ == '__main__':
-    writer = manager.DDS_writer('master_689', 3)
-    DDSSingleChannelBack(1).launch()
+    DDSSingleChannelBack(DDSSingleChannelWriter('local', 3)).launch()

@@ -122,8 +122,6 @@ class DDSSingleChannelBack:
 
         self.sl.slider.on_changed(self.slider_on_change)
 
-        manager = BaseManager()
-        manager.start()
         self.writer = writer
         self.write_DDS = self.writer.write
 
@@ -262,7 +260,8 @@ class DDSSingleChannelBack:
 
 
 if __name__ == '__main__':
-    BaseManager.register('DDS_writer', DDSSingleChannelWriter)
-    writer = manager.DDS_writer('master_689', 3)
     freeze_support()
-    DDSSingleChannelBack(writer).launch()
+    BaseManager.register('DDS_writer', DDSSingleChannelWriter)
+    manager = BaseManager()
+    manager.start()
+    DDSSingleChannelBack(manager.DDS_writer('local', 3)).launch()
