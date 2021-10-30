@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib.widgets import Button, TextBox, Slider, CheckButtons
 import matplotlib.lines as mlines
 from matplotlib.patches import Arrow
-
+from color_annotation import MyColorTextBox, step2digit
 
 import matplotlib as mpl
 
@@ -67,17 +67,6 @@ class MyCheckButtons():
 
 
 
-class MyTextBox():
-    def __init__(self, pos, text=None, *args, **kwargs):
-        self.ax = plt.axes(pos)
-        self.tb = TextBox(self.ax, text, *args, **kwargs)
-
-        self.tb.set_val('%.3f'%kwargs['initial'])
-
-
-    def addAnnotate(self, *args, **kwargs):
-        self.ax.annotate(*args, **kwargs)
-
 
 class MySlider():
     def __init__(self, pos, *args, **kwargs):
@@ -100,11 +89,11 @@ class DDSSingleChannelBack:
         if not fine_step:
             fine_step = (.01, 1)  # (freq., phase) pair
 
+        self.fine_step = fine_step
         self.draw(freq_init)
 
         self.cur_freq = freq_init
         self.cur_phase = 0
-        self.fine_step = fine_step
         self.fine_type = 0  # 0 for frequency
 
         self.up.button.on_clicked(self.up_callback)
@@ -179,8 +168,10 @@ class DDSSingleChannelBack:
         tb_freq_y = .6
         tb_freq_width = .4
         tb_freq_height = .1
-        self.tb_freq = MyTextBox([tb_freq_x, tb_freq_y, tb_freq_width, tb_freq_height], initial=freq_init)
+        self.tb_freq = MyColorTextBox([tb_freq_x, tb_freq_y, tb_freq_width,
+                        tb_freq_height], step2digit(self.fine_step[0]), initial=freq_init)
         self.tb_freq.addAnnotate('Freq. (MHz)', (0, 1.15), annotation_clip=False)
+        
 
 
     def up_callback(self, event):
@@ -205,7 +196,8 @@ class DDSSingleChannelBack:
             self.update_tb()
 
     def slider_on_change(self, event):
-        self.cur_phase = self.sl.slider.val
+        # on some version of matplotlib, slider.val returns numpy.float64, which causes trouble
+        self.cur_phase = float(self.sl.slider.val)  
         self.write_DDS(self.cur_freq, self.cur_phase)
 
     def select_callback(self, event):
@@ -227,7 +219,7 @@ class DDSSingleChannelBack:
             setAxesFrameColor(self.tb_freq.tb.ax, 'k')
             self.cur_freq = float(event)
             self.write_DDS(self.cur_freq, self.cur_phase)
-            self.tb_freq.tb.set_val('%.3f'%float(event))
+            self.update_tb()
 
     def update_slider(self):
         self.sl.slider.set_val(self.cur_phase)
@@ -236,7 +228,7 @@ class DDSSingleChannelBack:
         self.state_banner.set_text(text)
 
     def update_tb(self):
-        self.tb_freq.tb.set_val('%.3f' % self.cur_freq)
+        self.tb_freq.tb.set_val(self.cur_freq)
 
     def launch(self):
         plt.show()

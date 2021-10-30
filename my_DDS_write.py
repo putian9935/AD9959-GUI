@@ -16,7 +16,7 @@ class DDSSingleChannelWriter():
         
         self.frequency = [DDSSingleChannelWriter.transform_frequency(float(_) * 1e3) for _ in row[1:5]]
         self.phase = [DDSSingleChannelWriter.transform_phase(float(_)) for _ in row[5:9]]
-
+        
         self.channel = channel
         self.ser.write(b''.join(f.to_bytes(4, 'big')+p.to_bytes(2, 'big') for f, p in zip(self.frequency, self.phase)))
 
