@@ -177,22 +177,25 @@ class DDSSingleChannelBack:
     def up_callback(self, event):
         if self.fine_type:
             self.cur_phase += self.fine_step[self.fine_type]
-            self.write_DDS(self.cur_freq, self.cur_phase)
+
+            # when slider is changed, the slider_on_changed is called automatically 
+            # the same applies to other button
+            # self.write_DDS(self.cur_freq, self.cur_phase)
             self.update_slider()
         else:
             self.cur_freq += self.fine_step[self.fine_type]
-            self.write_DDS(self.cur_freq, self.cur_phase)
+            # when textbox is changed, the slider_on_submit is called automatically 
+            # the same applies to other button
+            # self.write_DDS(self.cur_freq, self.cur_phase)
             self.update_tb()
 
 
     def down_callback(self, event):
         if self.fine_type:
             self.cur_phase -= self.fine_step[self.fine_type]
-            self.write_DDS(self.cur_freq, self.cur_phase)
             self.update_slider()
         else:
             self.cur_freq -= self.fine_step[self.fine_type]
-            self.write_DDS(self.cur_freq, self.cur_phase)
             self.update_tb()
 
     def slider_on_change(self, event):
@@ -238,4 +241,4 @@ class DDSSingleChannelBack:
 
 
 if __name__ == '__main__':
-    DDSSingleChannelBack(DDSSingleChannelWriter('local', 3)).launch()
+    DDSSingleChannelBack(DDSSingleChannelWriter('offline', 3)).launch()

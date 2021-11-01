@@ -11,6 +11,11 @@ class DDSSingleChannelWriter():
         Available channel: 0, 1, 2, 3
         '''
 
+        if name == 'offline':
+            self.write = lambda _, __: print('%.4f %d' % (_, __)) 
+            self.write_full = lambda _, __: print('%.4f %d' % (_, __)) 
+            return 
+
         row = open_settings(name)
         self.ser = setup_arduino(row[0])
         
