@@ -243,7 +243,7 @@ class DDSSingleChannelBack:
 
     def slider_on_change(self, event):
         # on some version of matplotlib, slider.val returns numpy.float64, which causes trouble
-        self.cur_phase = float(self.sl.slider.val)
+        self.cur_phase = float(self.sl.slider.val) % 360.
         self.write_DDS(self.cur_freq, self.cur_phase)
 
     def select_callback(self, event):

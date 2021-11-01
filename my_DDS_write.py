@@ -12,7 +12,7 @@ class DDSSingleChannelWriter():
         '''
 
         if name == 'offline':
-            self.write = lambda _, __: print('%.4f %d' % (_, __)) 
+            self.write = lambda _: print('%.4f %d' % (_)) 
             self.write_full = lambda _, __: print('%.4f %d' % (_, __)) 
             return 
 
@@ -40,11 +40,13 @@ class DDSSingleChannelWriter():
 
 
     def write(self, new_phi):
+        print('%.4f %d' % (_)) 
         self.phase[self.channel] = DDSSingleChannelWriter.transform_phase(new_phi)
         self.ser.write(b''.join(f.to_bytes(4, 'big')+p.to_bytes(2, 'big') for f, p in zip(self.frequency, self.phase)))
 
 
     def write_full(self, new_freq, new_phi):
+        print('%.4f %d' % (_, __)) 
         self.frequency = [DDSSingleChannelWriter.transform_frequency(new_freq * 1000)] * 4
         self.phase[self.channel] = DDSSingleChannelWriter.transform_phase(new_phi)
         self.ser.write(b''.join(f.to_bytes(4, 'big')+p.to_bytes(2, 'big') for f, p in zip(self.frequency, self.phase)))
