@@ -31,9 +31,13 @@ class ColorTextBox(TextBox):
 
         text = '%.4f' % kwargs['initial']
         self.text_disp.set_text(text)
+        self.rendered_texts = []
         self._update_highlight_position(self._chop_float(text))
 
     def _update_highlight_position(self, chopped_strings):
+        if len(self.rendered_texts):
+            for t in self.rendered_texts:
+                t.set_visible(False)
         self.rendered_texts = []
 
         # hack from https://stackoverflow.com/questions/9169052/partial-coloring-of-text-in-matplotlib
@@ -48,6 +52,7 @@ class ColorTextBox(TextBox):
             t = transforms.offset_copy(
                 text._transform, x=ex.width, units='dots')
             self.rendered_texts.append(text)
+        plt.draw()
 
     def _chop_float(self, str_val):
         """
@@ -56,8 +61,10 @@ class ColorTextBox(TextBox):
         Say val = 58.7830, highlight_digit = 2; 
         then this function returns ["58.7", "8", "30"]
         """
-
-        return [str_val[:-(4-self.highlight_digit)-1], str_val[-(4-self.highlight_digit)-1], str_val[-(4-self.highlight_digit):]]
+        if self.highlight_digit < 4:
+            return [str_val[:-(4-self.highlight_digit)-1], str_val[-(4-self.highlight_digit)-1], str_val[-(4-self.highlight_digit):]]
+        else: 
+            return [str_val[:-(4-self.highlight_digit)-1], str_val[-(4-self.highlight_digit)-1]]
 
     def set_val(self, val):
         super().set_val(val)

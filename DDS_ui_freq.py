@@ -18,6 +18,7 @@ font = {'family': 'serif',
 mpl.rc('font', **font)
 mpl.rcParams['toolbar'] = 'None'
 
+
 def isfloat(value):
     try:
         float(value)
@@ -26,9 +27,21 @@ def isfloat(value):
         return False
 
 
+def counted_func(f):
+    cnt = 0 
+    def ret(*args, **kwargs):
+        nonlocal cnt
+        cnt += 1 
+        print('[%d]\t'%cnt,end='')
+        f(*args, **kwargs)
+    
+    return ret 
+
+
 def setAxesFrameColor(ax, c):
     for spine in ax.spines.values():
         spine.set_edgecolor(c)
+
 
 def turnOffAxesFrame(ax):
     for spine in ax.spines.values():
@@ -66,8 +79,6 @@ class MyCheckButtons():
         self.cbutton.on_clicked(callback)
 
 
-
-
 class MySlider():
     def __init__(self, pos, *args, **kwargs):
         self.ax = plt.axes(pos)
@@ -81,13 +92,12 @@ class MySlider():
         return(self.pos.xmin < x < self.pos.xmax and self.pos.ymin < y < self.pos.ymax)
 
 
-
 class DDSSingleChannelBack:
     def __init__(self, writer, init_phase=0, fine_step=None, freq_init=None):
         if not freq_init:
             freq_init = 57.6
         if not fine_step:
-            fine_step = (.01, 1)  # (freq., phase) pair
+            fine_step = [.01, 1]  # (freq., phase) pair
 
         self.fine_step = fine_step
         self.draw(freq_init)
@@ -102,11 +112,11 @@ class DDSSingleChannelBack:
         self.sl.slider.on_changed(self.slider_on_change)
         self.select.cbutton.on_clicked(self.select_callback)
         self.tb_freq.tb.on_submit(self.textbox_on_submit)
+        self.left.button.on_clicked(self.left_callback)
+        self.right.button.on_clicked(self.right_callback)
 
         self.writer = writer
-        self.write_DDS = self.writer.write_full
-
-
+        self.write_DDS = counted_func(self.writer.write_full)
 
     def draw(self, freq_init):
         # basic setup
@@ -145,17 +155,17 @@ class DDSSingleChannelBack:
         self.up.setArrow(0, 0, 0, 1, head_length=0.6)
 
         self.down = MyButton([half + button_offset_x, half -
-                              button_offset_y - button_size, button_size  * 3 / 4, button_size])
+                              button_offset_y - button_size, button_size * 3 / 4, button_size])
         self.down.setArrow(0, 0, 0, -1, head_length=0.6)
 
         select_width = .15
         select_height = .2
-        self.select = MyCheckButtons([half + button_offset_x + fine_offset_x + button_size / 2., text_bar_y - select_height / 2., select_width, select_height], ['Freq', 'Phase'])
-
+        self.select = MyCheckButtons([half + button_offset_x + fine_offset_x + button_size /
+                                     2., text_bar_y - select_height / 2., select_width, select_height], ['Freq', 'Phase'])
 
         # Hand tuning
         slider_x = .08
-        slider_y = .3
+        slider_y = .28
         slider_width = .4
         slider_height = .1
 
@@ -168,27 +178,42 @@ class DDSSingleChannelBack:
         tb_freq_y = .6
         tb_freq_width = .4
         tb_freq_height = .1
-        self.tb_freq = MyColorTextBox([tb_freq_x, tb_freq_y, tb_freq_width,
-                        tb_freq_height], step2digit(self.fine_step[0]), initial=freq_init)
-        self.tb_freq.addAnnotate('Freq. (MHz)', (0, 1.15), annotation_clip=False)
+        self.tb_freq = MyColorTextBox(
+            [tb_freq_x, tb_freq_y, tb_freq_width, tb_freq_height],
+            step2digit(self.fine_step[0]),  # the colorbox requires the most significant digit
+            initial=freq_init
+        )
+        self.tb_freq.addAnnotate(
+            'Freq. (MHz)', (0, 1.15), annotation_clip=False)
         
+        # Buttons to control significant digit: 
+        h_button_x = tb_freq_x + tb_freq_width / 2. 
+        h_button_y = tb_freq_y - tb_freq_height 
+        h_button_y_offset = -.03 
+        h_button_x_offset = .02
+        h_button_size = .1
+
+        self.right = MyButton([h_button_x+h_button_x_offset, h_button_y+h_button_y_offset, h_button_size * 3 / 4, h_button_size])
+        self.right.setArrow(0, 0, 1, 0, head_length=0.6)
+
+        self.left = MyButton([h_button_x-h_button_x_offset-h_button_size * 3 / 4, h_button_y+h_button_y_offset, h_button_size * 3 / 4, h_button_size])
+        self.left.setArrow(0, 0, -1, 0, head_length=0.6)
 
 
     def up_callback(self, event):
         if self.fine_type:
             self.cur_phase += self.fine_step[self.fine_type]
 
-            # when slider is changed, the slider_on_changed is called automatically 
+            # when slider is changed, the slider_on_changed is called automatically
             # the same applies to other button
             # self.write_DDS(self.cur_freq, self.cur_phase)
             self.update_slider()
         else:
             self.cur_freq += self.fine_step[self.fine_type]
-            # when textbox is changed, the slider_on_submit is called automatically 
+            # when textbox is changed, the slider_on_submit is called automatically
             # the same applies to other button
             # self.write_DDS(self.cur_freq, self.cur_phase)
             self.update_tb()
-
 
     def down_callback(self, event):
         if self.fine_type:
@@ -198,9 +223,27 @@ class DDSSingleChannelBack:
             self.cur_freq -= self.fine_step[self.fine_type]
             self.update_tb()
 
+    def left_callback(self, event):
+        if self.fine_step[0] * 10 < 1:
+            self.fine_step[0] *= 10
+            self.tb_freq.tb.highlight_digit -= 1 
+            self.tb_freq.tb._update_highlight_position(self.tb_freq.tb._chop_float('%.4f'%self.cur_freq))
+        else:
+            print('Frequency step too large. Use type-in instead.')
+
+
+    def right_callback(self, event):
+        if self.tb_freq.tb.highlight_digit < 4:
+            self.fine_step[0] *= .1
+            self.tb_freq.tb.highlight_digit += 1 
+            self.tb_freq.tb._update_highlight_position(self.tb_freq.tb._chop_float('%.4f'%self.cur_freq))
+        else:
+            print('Frequency step too small.')
+
+
     def slider_on_change(self, event):
         # on some version of matplotlib, slider.val returns numpy.float64, which causes trouble
-        self.cur_phase = float(self.sl.slider.val)  
+        self.cur_phase = float(self.sl.slider.val)
         self.write_DDS(self.cur_freq, self.cur_phase)
 
     def select_callback(self, event):
@@ -212,8 +255,6 @@ class DDSSingleChannelBack:
             index = 1 - index
         for l in self.select.cbutton.lines[index]:
             l.set_visible(not l.get_visible())
-
-
 
     def textbox_on_submit(self, event):
         if not isfloat(event):
