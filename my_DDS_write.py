@@ -4,6 +4,26 @@ import csv
 
 from arduino_port import setup_arduino, open_settings, setup_arduino_port
 
+
+def counted_func(prefix=None):
+    def inner(f):
+        cnt = 0 
+        def ret(*args, **kwargs):
+            nonlocal cnt
+            cnt += 1 
+            print('%s[%d]\t'%(prefix, cnt),end='')
+            f(*args, **kwargs)
+        
+        return ret 
+    return inner
+
+
+
+class SpecialCommand:
+    UPLOAD = (9 << 28).to_bytes(4,'big')
+    DNLOAD = (10 << 28).to_bytes(4,'big')
+
+
 class DDSSingleChannelWriter():
     fclk = 5e5  # see Arduino code v1.ino 
     def __init__(self, name, channel):
@@ -38,19 +58,27 @@ class DDSSingleChannelWriter():
             return round(2 ** 32 * f / DDSSingleChannelWriter.fclk)
         raise RuntimeError('Frequency should be inside [0, 250] MHz')
 
-
+    @counted_func('Update')
     def write(self, new_phi):
-        print('%.4f %d' % (_)) 
+        print('%d' % (new_phi)) 
         self.phase[self.channel] = DDSSingleChannelWriter.transform_phase(new_phi)
         self.ser.write(b''.join(f.to_bytes(4, 'big')+p.to_bytes(2, 'big') for f, p in zip(self.frequency, self.phase)))
 
-
+    @counted_func('Update')
     def write_full(self, new_freq, new_phi):
-        print('%.4f %d' % (_, __)) 
+        print('%.4f %d' % (new_freq, new_phi)) 
         self.frequency = [DDSSingleChannelWriter.transform_frequency(new_freq * 1000)] * 4
         self.phase[self.channel] = DDSSingleChannelWriter.transform_phase(new_phi)
         self.ser.write(b''.join(f.to_bytes(4, 'big')+p.to_bytes(2, 'big') for f, p in zip(self.frequency, self.phase)))
 
+    @counted_func('Upload')
+    def upload(self):
+        self.ser.write(SpecialCommand.UPLOAD)
+        print('Uploaded to EEPROM! ')
+
+    @counted_func('Dnload')
+    def download(self):
+        self.ser.write(SpecialCommand.DNLOAD)
 
     def close(self):
         self.ser.close()
@@ -59,6 +87,11 @@ class DDSSingleChannelWriter():
 
 
 if __name__ == '__main__':
+    print(DDSSingleChannelWriter.transform_frequency(250e3))
+    print(DDSSingleChannelWriter.transform_frequency(250e3).to_bytes(4,'big'))
+    print(SpecialCommand.UPLOAD)
+    print(SpecialCommand.UPLOAD.to_bytes(4,'big'))
+    exit()
     DDS_writer = DDSSingleChannelWriter('master_689', 3)
     for phi in range(0, 180, 30):
         DDS_writer.write(phi)

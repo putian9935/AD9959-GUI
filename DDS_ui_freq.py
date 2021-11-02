@@ -27,17 +27,6 @@ def isfloat(value):
         return False
 
 
-def counted_func(f):
-    cnt = 0 
-    def ret(*args, **kwargs):
-        nonlocal cnt
-        cnt += 1 
-        print('[%d]\t'%cnt,end='')
-        f(*args, **kwargs)
-    
-    return ret 
-
-
 def setAxesFrameColor(ax, c):
     for spine in ax.spines.values():
         spine.set_edgecolor(c)
@@ -116,7 +105,11 @@ class DDSSingleChannelBack:
         self.right.button.on_clicked(self.right_callback)
 
         self.writer = writer
-        self.write_DDS = counted_func(self.writer.write_full)
+        self.write_DDS = self.writer.write_full
+
+        
+        self.upload.button.on_clicked(lambda *_: self.writer.upload())
+        self.download.button.on_clicked(lambda *_: self.writer.download())
 
     def draw(self, freq_init):
         # basic setup
@@ -175,7 +168,7 @@ class DDSSingleChannelBack:
 
         # Type freq
         tb_freq_x = .08
-        tb_freq_y = .6
+        tb_freq_y = .65
         tb_freq_width = .4
         tb_freq_height = .1
         self.tb_freq = MyColorTextBox(
@@ -198,6 +191,18 @@ class DDSSingleChannelBack:
 
         self.left = MyButton([h_button_x-h_button_x_offset-h_button_size * 3 / 4, h_button_y+h_button_y_offset, h_button_size * 3 / 4, h_button_size])
         self.left.setArrow(0, 0, -1, 0, head_length=0.6)
+
+        # Buttons to upload Arduino EEPROM and readback 
+        upload_width = .18
+        upload_height = .1 
+        upload_x = .1
+        upload_y = .12
+        self.upload = MyButton([upload_x, upload_y, upload_width, upload_height], 'Upload')
+
+        download_x = .3
+        download_width = .22
+        self.download = MyButton([download_x, upload_y, download_width, upload_height], 'Download')
+        
 
 
     def up_callback(self, event):
@@ -282,4 +287,4 @@ class DDSSingleChannelBack:
 
 
 if __name__ == '__main__':
-    DDSSingleChannelBack(DDSSingleChannelWriter('offline', 3)).launch()
+    DDSSingleChannelBack(DDSSingleChannelWriter('local', 3)).launch()
