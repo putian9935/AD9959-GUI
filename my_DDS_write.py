@@ -2,7 +2,7 @@ import numpy as np
 import time
 import csv
 
-from arduino_port import setup_arduino, open_settings, setup_arduino_port
+from arduino_port import setup_arduino, open_settings, setup_arduino_port, get_line_bin
 
 
 def counted_func(prefix=None):
@@ -19,13 +19,14 @@ def counted_func(prefix=None):
 
 
 
-class SpecialCommand:
-    UPLOAD = (9 << 28).to_bytes(4,'big')
-    DNLOAD = (10 << 28).to_bytes(4,'big')
+class Command:
+    UPDATE = b'\x00'
+    UPLOAD = b'\x01'
+    DNLOAD = b'\x02' 
 
 
 class DDSSingleChannelWriter():
-    fclk = 5e5  # see Arduino code v1.ino 
+    fclk = 500000  # see Arduino code v1.ino 
     def __init__(self, name, channel):
         '''
         Available channel: 0, 1, 2, 3
@@ -34,6 +35,8 @@ class DDSSingleChannelWriter():
         if name == 'offline':
             self.write = lambda _: print('%.4f %d' % (_)) 
             self.write_full = lambda _, __: print('%.4f %d' % (_, __)) 
+            self.upload = lambda *_: print('Uploaded to EEPROM!') 
+            self.download = lambda *_: print('Downloading...')
             return 
 
         row = open_settings(name)
@@ -43,42 +46,56 @@ class DDSSingleChannelWriter():
         self.phase = [DDSSingleChannelWriter.transform_phase(float(_)) for _ in row[5:9]]
         
         self.channel = channel
-        self.ser.write(b''.join(f.to_bytes(4, 'big')+p.to_bytes(2, 'big') for f, p in zip(self.frequency, self.phase)))
+        # self.ser.write(Command.UPDATE+b''.join(f.to_bytes(4, 'big')+p.to_bytes(2, 'big') for f, p in zip(self.frequency, self.phase)))
 
 
     @staticmethod
     def transform_phase(phi):
         if 0 <= phi <= 360:
-            return round(2 ** 14 * phi / 360)
+            return round(2 ** 14  / 360 * phi)
         raise RuntimeError('Phase should be inside [0,360] Deg.')
 
     @staticmethod
     def transform_frequency(f):
         if 0 <= f <= 250e3:
-            return round(2 ** 32 * f / DDSSingleChannelWriter.fclk)
+            return round(2 ** 32 / DDSSingleChannelWriter.fclk * f )
         raise RuntimeError('Frequency should be inside [0, 250] MHz')
+
+    @staticmethod
+    def inverse_transform(bline):
+        freq = [int().from_bytes(bline[6*ch:6*ch+4], 'big') * DDSSingleChannelWriter.fclk / 2** 32 for ch in range(4)]
+        phase = [int().from_bytes(bline[6*ch + 4:6*ch+6], 'big') * 360 / 2 ** 14 for ch in range(4)]
+        print(freq, phase)
+            
+
 
     @counted_func('Update')
     def write(self, new_phi):
         print('%d' % (new_phi)) 
         self.phase[self.channel] = DDSSingleChannelWriter.transform_phase(new_phi)
-        self.ser.write(b''.join(f.to_bytes(4, 'big')+p.to_bytes(2, 'big') for f, p in zip(self.frequency, self.phase)))
+        self.ser.write(Command.UPDATE+b''.join(f.to_bytes(4, 'big')+p.to_bytes(2, 'big') for f, p in zip(self.frequency, self.phase)))
 
     @counted_func('Update')
     def write_full(self, new_freq, new_phi):
         print('%.4f %d' % (new_freq, new_phi)) 
         self.frequency = [DDSSingleChannelWriter.transform_frequency(new_freq * 1000)] * 4
         self.phase[self.channel] = DDSSingleChannelWriter.transform_phase(new_phi)
-        self.ser.write(b''.join(f.to_bytes(4, 'big')+p.to_bytes(2, 'big') for f, p in zip(self.frequency, self.phase)))
+        self.ser.write(Command.UPDATE+b''.join(f.to_bytes(4, 'big')+p.to_bytes(2, 'big') for f, p in zip(self.frequency, self.phase)))
+        get_line_bin(self.ser)
 
     @counted_func('Upload')
     def upload(self):
-        self.ser.write(SpecialCommand.UPLOAD)
+        self.ser.write(Command.UPLOAD+b''.join(f.to_bytes(4, 'big')+p.to_bytes(2, 'big') for f, p in zip(self.frequency, self.phase)))
         print('Uploaded to EEPROM! ')
+        get_line_bin(self.ser)
 
     @counted_func('Dnload')
     def download(self):
-        self.ser.write(SpecialCommand.DNLOAD)
+        print('Downloading...')
+        self.ser.write(Command.DNLOAD+b'\x00'*24)
+        if self.ser.inWaiting:
+            DDSSingleChannelWriter.inverse_transform(get_line_bin(self.ser))
+            
 
     def close(self):
         self.ser.close()

@@ -9,6 +9,8 @@ class ArduinoHandShakeException(Exception):
 def get_line_msg(ser):
     return ser.readline().decode('ansi')
 
+def get_line_bin(ser):
+    return ser.readline()
 
 def which_port(iD):
     # Finds ports for user to select
@@ -56,7 +58,6 @@ def setup_arduino_port(port, baud=115200, timeout=.3, max_attempts=5):
         raise ArduinoHandShakeException('Arduino handshake failed! Did you upload v1_force-write to Arduino? ')
         
     ser.write('hello'.encode())
-    print('hello'.encode())
     attempt = 0
     while attempt < max_attempts:
         msg = get_line_msg(ser)
@@ -74,3 +75,4 @@ def setup_arduino_port(port, baud=115200, timeout=.3, max_attempts=5):
 
 def setup_arduino(iD, baud=115200, timeout=.3):
     return setup_arduino_port(which_port(iD), baud, timeout)
+
