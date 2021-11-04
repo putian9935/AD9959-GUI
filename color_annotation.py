@@ -67,15 +67,20 @@ class ColorTextBox(TextBox):
             return [str_val[:-(4-self.highlight_digit)-1], str_val[-(4-self.highlight_digit)-1]]
 
     def set_val(self, val):
-        super().set_val(val)
-
         text = '%.4f' % val
         self.text_disp.set_text(text)
+        
         # for the correct cursor position
         self.cursor_index = min(self.cursor_index, len(text))
 
-        for i, s in enumerate(self._chop_float(text)):
-            self.rendered_texts[i].set_text(s)
+        chopped_text = self._chop_float(text)
+        if len(chopped_text[0]) != len(self.rendered_texts[0].get_text()):
+            self._update_highlight_position(chopped_text)
+            for t in self.rendered_texts:  # they should not be seen when typing
+                t.set_visible(False)
+        else:
+            for i, s in enumerate(chopped_text):
+                self.rendered_texts[i].set_text(s)
 
         self._rendercursor()  # otherwise position is wrong
         plt.draw()

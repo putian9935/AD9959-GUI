@@ -216,9 +216,7 @@ class DDSSingleChannelBack:
             self.update_slider()
         else:
             self.cur_freq += self.fine_step[self.fine_type]
-            # when textbox is changed, the slider_on_submit is called automatically
-            # the same applies to other button
-            # self.write_DDS(self.cur_freq, self.cur_phase)
+            self.write_DDS(self.cur_freq, self.cur_phase)
             self.update_tb()
 
     def down_callback(self, event):
@@ -227,6 +225,7 @@ class DDSSingleChannelBack:
             self.update_slider()
         else:
             self.cur_freq -= self.fine_step[self.fine_type]
+            self.write_DDS(self.cur_freq, self.cur_phase)
             self.update_tb()
 
     def left_callback(self, event):
@@ -262,7 +261,9 @@ class DDSSingleChannelBack:
         for l in self.select.cbutton.lines[index]:
             l.set_visible(not l.get_visible())
 
+
     def textbox_on_submit(self, event):
+        print('hello')
         if not isfloat(event):
             setAxesFrameColor(self.tb_freq.tb.ax, 'red')
         else:
