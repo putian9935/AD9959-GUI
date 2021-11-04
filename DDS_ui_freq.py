@@ -263,7 +263,6 @@ class DDSSingleChannelBack:
 
 
     def textbox_on_submit(self, event):
-        print('hello')
         if not isfloat(event):
             setAxesFrameColor(self.tb_freq.tb.ax, 'red')
         else:
