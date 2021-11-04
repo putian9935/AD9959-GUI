@@ -82,17 +82,21 @@ class MySlider():
 
 
 class DDSSingleChannelBack:
-    def __init__(self, writer, init_phase=0, fine_step=None, freq_init=None):
-        if not freq_init:
-            freq_init = 57.6
+    def __init__(self, writer, fine_step=None):
         if not fine_step:
             fine_step = [.01, 1]  # (freq., phase) pair
 
-        self.fine_step = fine_step
-        self.draw(freq_init)
+        self.writer = writer
+        self.write_DDS = self.writer.write_full
 
-        self.cur_freq = freq_init
-        self.cur_phase = 0
+
+        self.cur_freq = DDSSingleChannelWriter.inverse_transform_frequency(self.writer.frequency[self.writer.channel]) / 1e3
+        self.cur_phase = DDSSingleChannelWriter.inverse_transform_phase(self.writer.phase[self.writer.channel])
+        
+
+        self.fine_step = fine_step
+        self.draw()
+
         self.fine_type = 0  # 0 for frequency
 
         self.up.button.on_clicked(self.up_callback)
@@ -103,15 +107,11 @@ class DDSSingleChannelBack:
         self.tb_freq.tb.on_submit(self.textbox_on_submit)
         self.left.button.on_clicked(self.left_callback)
         self.right.button.on_clicked(self.right_callback)
-
-        self.writer = writer
-        self.write_DDS = self.writer.write_full
-
         
         self.upload.button.on_clicked(lambda *_: self.writer.upload())
         self.download.button.on_clicked(lambda *_: self.writer.download())
 
-    def draw(self, freq_init):
+    def draw(self):
         # basic setup
         self.fig = plt.figure(figsize=(6, 4))
         self.fig.canvas.mpl_disconnect(
@@ -165,6 +165,7 @@ class DDSSingleChannelBack:
         self.sl = MySlider([slider_x, slider_y, slider_width,
                            slider_height], '', 0, 360, valfmt=' %d')
         self.sl.addAnnotate('Phase', (.5, 1.15), annotation_clip=False)
+        self.sl.slider.set_val(self.cur_phase)
 
         # Type freq
         tb_freq_x = .08
@@ -174,7 +175,7 @@ class DDSSingleChannelBack:
         self.tb_freq = MyColorTextBox(
             [tb_freq_x, tb_freq_y, tb_freq_width, tb_freq_height],
             step2digit(self.fine_step[0]),  # the colorbox requires the most significant digit
-            initial=freq_init
+            initial=self.cur_freq
         )
         self.tb_freq.addAnnotate(
             'Freq. (MHz)', (0, 1.15), annotation_clip=False)

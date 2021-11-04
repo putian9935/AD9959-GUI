@@ -18,6 +18,14 @@ def counted_func(prefix=None):
     return inner
 
 
+def show_channel_parameter(bin_str):
+    print('%-4s %-8s %-4s' % ('Ch.', 'Freq.', 'Phase'))
+    for ch in range(4):
+        print('%-4d %-8d %-4.1f' % (
+            ch,
+            DDSSingleChannelWriter.inverse_transform_frequency(int().from_bytes(bin_str[6*ch:6*ch+4], 'big') / 1000),  # in the unit of MHz
+            DDSSingleChannelWriter.inverse_transform_phase(int().from_bytes(bin_str[6*ch+4:6*ch+6], 'big')))
+        )
 
 class Command:
     UPDATE = b'\x00'
@@ -61,12 +69,15 @@ class DDSSingleChannelWriter():
             return round(2 ** 32 / DDSSingleChannelWriter.fclk * f )
         raise RuntimeError('Frequency should be inside [0, 250] MHz')
 
+
+
     @staticmethod
-    def inverse_transform(bline):
-        freq = [int().from_bytes(bline[6*ch:6*ch+4], 'big') * DDSSingleChannelWriter.fclk / 2** 32 for ch in range(4)]
-        phase = [int().from_bytes(bline[6*ch + 4:6*ch+6], 'big') * 360 / 2 ** 14 for ch in range(4)]
-        print(freq, phase)
-            
+    def inverse_transform_phase(transformed_phi):
+        return transformed_phi * (360 / 2 ** 14) 
+
+    @staticmethod 
+    def inverse_transform_frequency(transformed_f):
+        return transformed_f * (DDSSingleChannelWriter.fclk / 2 ** 32)            
 
 
     @counted_func('Update')
@@ -75,26 +86,34 @@ class DDSSingleChannelWriter():
         self.phase[self.channel] = DDSSingleChannelWriter.transform_phase(new_phi)
         self.ser.write(Command.UPDATE+b''.join(f.to_bytes(4, 'big')+p.to_bytes(2, 'big') for f, p in zip(self.frequency, self.phase)))
 
+        if self.ser.inWaiting:
+            get_line_bin(self.ser)
+            print('%d' % (new_phi))
+        
+
     @counted_func('Update')
     def write_full(self, new_freq, new_phi):
-        print('%.4f %d' % (new_freq, new_phi)) 
         self.frequency = [DDSSingleChannelWriter.transform_frequency(new_freq * 1000)] * 4
         self.phase[self.channel] = DDSSingleChannelWriter.transform_phase(new_phi)
         self.ser.write(Command.UPDATE+b''.join(f.to_bytes(4, 'big')+p.to_bytes(2, 'big') for f, p in zip(self.frequency, self.phase)))
-        get_line_bin(self.ser)
+        
+        if self.ser.inWaiting:
+            get_line_bin(self.ser)
+            print('%.4f %d' % (new_freq, new_phi))
 
     @counted_func('Upload')
     def upload(self):
         self.ser.write(Command.UPLOAD+b''.join(f.to_bytes(4, 'big')+p.to_bytes(2, 'big') for f, p in zip(self.frequency, self.phase)))
-        print('Uploaded to EEPROM! ')
-        get_line_bin(self.ser)
+        if self.ser.inWaiting:
+            get_line_bin(self.ser)
+            print('Uploaded to EEPROM! ')
 
     @counted_func('Dnload')
     def download(self):
         print('Downloading...')
         self.ser.write(Command.DNLOAD+b'\x00'*24)
         if self.ser.inWaiting:
-            DDSSingleChannelWriter.inverse_transform(get_line_bin(self.ser))
+            show_channel_parameter(get_line_bin(self.ser))
             
 
     def close(self):
