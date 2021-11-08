@@ -37,6 +37,14 @@ def turnOffAxesFrame(ax):
         spine.set_visible(False)
 
 
+def safe_yn_input(msg):
+    while True:
+        s = input(msg) 
+        if s.lower()=='y' or not len(s.strip()):
+            return True 
+        elif s.lower() == 'n':
+            return False 
+        
 class MyButton():
     def __init__(self, pos, text=None):
         self.ax = plt.axes(pos)
@@ -83,6 +91,8 @@ class MySlider():
 
 class DDSSingleChannelBack:
     def __init__(self, writer, fine_step=None):
+        print('Initiating...')
+
         if not fine_step:
             fine_step = [.01, 1]  # (freq., phase) pair
 
@@ -110,6 +120,7 @@ class DDSSingleChannelBack:
         
         self.upload.button.on_clicked(lambda *_: self.writer.upload())
         self.download.button.on_clicked(lambda *_: self.writer.download())
+        
 
     def draw(self):
         # basic setup
@@ -283,10 +294,21 @@ class DDSSingleChannelBack:
 
     def launch(self):
         plt.show()
+        print('Terminating program...')
         print('Current freq. %.3f' % (self.cur_freq))
         print('Current phase %.3f' % (self.cur_phase))
-        input('Terminating program... \nIf you want to upload permanantly the DDS params, be sure to update current_settings.csv, upload v1.ino, and run write_DDS.py\n')
+        print('Arduino EEPROM reads:')
+        self.writer.download()
+
+        if safe_yn_input('Do you want to upload current DDS params to Arduino([y]/n)?'):
+            self.writer.upload()
+            self.writer.send_self_check()
+
+        print('Please modify the entry in current_settings.csv as follows:')
+        print(self.writer.header+', '.join(['%.3f'%(DDSSingleChannelWriter.inverse_transform_frequency(f)/1e3) for f in self.writer.frequency] + ['%.1f'%(DDSSingleChannelWriter.inverse_transform_phase(p)) for p in self.writer.phase]))
+
+
 
 
 if __name__ == '__main__':
-    DDSSingleChannelBack(DDSSingleChannelWriter('local', 3)).launch()
+    DDSSingleChannelBack(DDSSingleChannelWriter('offline', 3)).launch()
