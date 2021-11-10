@@ -3,7 +3,7 @@ import time
 import csv
 
 from arduino_port import setup_arduino, open_settings, setup_arduino_port, get_line_bin
-
+from collections import Iterable
 
 def counted_func(prefix=None):
     def inner(f):
@@ -30,17 +30,17 @@ def show_channel_parameter(bin_str):
         )
 
 
-class Command:
-    UPDATE = b'\x00'
-    UPLOAD = b'\x01'
-    DNLOAD = b'\x02'
-    EXIT  = b'\x03'
+class Command():
+    UPDATE = 0
+    UPLOAD = 1
+    DNLOAD = 2
+    EXIT  = 3
 
 
 class DDSSingleChannelWriter():
     fclk = 500000  # see Arduino code v1.ino
 
-    def __init__(self, name, channel):
+    def __init__(self, name, channel, shared_channels=None):
         '''
         Available channel: 0, 1, 2, 3
         '''
@@ -48,12 +48,22 @@ class DDSSingleChannelWriter():
         
         row = open_settings(name)
         self.header = '%s, %s, '%(name, row[0])
+        self.frequency = []
+        self.phase = []
         self.frequency = [DDSSingleChannelWriter.transform_frequency(
             float(_) * 1e3) for _ in row[1:5]]
         self.phase = [DDSSingleChannelWriter.transform_phase(
             float(_)) for _ in row[5:9]]
 
         self.channel = channel
+        if shared_channels is None: 
+            shared_channels = [self.channel]
+        elif isinstance(shared_channels, int):
+            shared_channels = [self.channel, shared_channels] 
+        elif isinstance(shared_channels, Iterable):
+            shared_channels = [self.channel] + [ch for ch in shared_channels]
+        self._calculate_commands(shared_channels)
+
         if name == 'offline':
             self.write = lambda _: print('%.4f %d' % (_))
             self.write_full = lambda _, __: print('%.4f %d' % (_, __))
@@ -63,7 +73,8 @@ class DDSSingleChannelWriter():
         
         self.ser = setup_arduino(row[0])
 
-        self.ser.write(Command.UPDATE+b''.join(f.to_bytes(4, 'big') +
+        # update all channels, otherwise some may not be able to open 
+        self.ser.write((15 << 4).to_bytes(1,'big')+b''.join(f.to_bytes(4, 'big') +
                        p.to_bytes(2, 'big') for f, p in zip(self.frequency, self.phase)))
         get_line_bin(self.ser)
         
@@ -93,7 +104,7 @@ class DDSSingleChannelWriter():
         print('%d' % (new_phi))
         self.phase[self.channel] = DDSSingleChannelWriter.transform_phase(
             new_phi)
-        self.ser.write(Command.UPDATE+b''.join(f.to_bytes(4, 'big') +
+        self.ser.write(self.commands[Command.UPDATE]+b''.join(f.to_bytes(4, 'big') +
                        p.to_bytes(2, 'big') for f, p in zip(self.frequency, self.phase)))
 
         if self.ser.inWaiting:
@@ -106,7 +117,7 @@ class DDSSingleChannelWriter():
             DDSSingleChannelWriter.transform_frequency(new_freq * 1000)] * 4
         self.phase[self.channel] = DDSSingleChannelWriter.transform_phase(
             new_phi)
-        self.ser.write(Command.UPDATE+b''.join(f.to_bytes(4, 'big') +
+        self.ser.write(self.commands[Command.UPDATE]+b''.join(f.to_bytes(4, 'big') +
                        p.to_bytes(2, 'big') for f, p in zip(self.frequency, self.phase)))
 
         if self.ser.inWaiting:
@@ -115,7 +126,7 @@ class DDSSingleChannelWriter():
 
     @counted_func('Upload')
     def upload(self):
-        self.ser.write(Command.UPLOAD+b''.join(f.to_bytes(4, 'big') +
+        self.ser.write(self.commands[Command.UPLOAD]+b''.join(f.to_bytes(4, 'big') +
                        p.to_bytes(2, 'big') for f, p in zip(self.frequency, self.phase)))
         if self.ser.inWaiting:
             get_line_bin(self.ser)
@@ -124,11 +135,17 @@ class DDSSingleChannelWriter():
     @counted_func('Dnload')
     def download(self):
         print('Downloading...')
-        self.ser.write(Command.DNLOAD+b'\x00'*24)
+        self.ser.write(self.commands[Command.DNLOAD]+b'\x00'*24)
         if self.ser.inWaiting:
             show_channel_parameter(get_line_bin(self.ser))
     
-    
+    def _calculate_commands(self, sc):
+        def bit_xor(a, b):
+            return bytes(_ ^ __ for _, __ in zip(a, b)) 
+        
+        b_ch_en = sum(16 << ch for ch in sc).to_bytes(1, 'big')
+        self.commands = tuple(bit_xor(b_ch_en, cmd.to_bytes(1, 'big')) for cmd in range(4))
+
     def send_self_check(self):
         self.ser.write(Command.EXIT+b'\x00'*24)
 

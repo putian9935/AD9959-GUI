@@ -200,12 +200,10 @@ class DDSSingleChannelBack:
 
     def up_callback(self, event):
         self.cur_phase += 1
-        self.write_DDS(self.cur_phase)
         self.update_slider()
 
     def down_callback(self, event):
         self.cur_phase -= 1
-        self.write_DDS(self.cur_phase)
         self.update_slider()
 
     def slider_on_change(self, event):
@@ -255,7 +253,7 @@ class DDSSingleChannelBack:
     def launch(self):
         plt.show()
         print('Current phase %.3f' % (self.cur_phase))
-        input('Terminating program... \nIf you want to upload permanantly the DDS params, be sure to update current_settings.csv, upload v1.ino, and run write_DDS.py\n')
+        input('Terminating program... \n')
         
 
 

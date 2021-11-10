@@ -13,6 +13,10 @@ from time import sleep
 
 from my_DDS_write import DDSSingleChannelWriter
 
+
+import tkinter as tk  # for askyesno 
+
+
 font = {'family': 'serif',
         'size': 16}
 mpl.rc('font', **font)
@@ -39,12 +43,13 @@ def turnOffAxesFrame(ax):
 
 def safe_yn_input(msg):
     while True:
-        s = input(msg) 
-        if s.lower()=='y' or not len(s.strip()):
-            return True 
+        s = input(msg)
+        if s.lower() == 'y' or not len(s.strip()):
+            return True
         elif s.lower() == 'n':
-            return False 
-        
+            return False
+
+
 class MyButton():
     def __init__(self, pos, text=None):
         self.ax = plt.axes(pos)
@@ -99,10 +104,8 @@ class DDSSingleChannelBack:
         self.writer = writer
         self.write_DDS = self.writer.write_full
 
-
         self.cur_freq = DDSSingleChannelWriter.inverse_transform_frequency(self.writer.frequency[self.writer.channel]) / 1e3
         self.cur_phase = DDSSingleChannelWriter.inverse_transform_phase(self.writer.phase[self.writer.channel])
-        
 
         self.fine_step = fine_step
         self.draw()
@@ -117,10 +120,12 @@ class DDSSingleChannelBack:
         self.tb_freq.tb.on_submit(self.textbox_on_submit)
         self.left.button.on_clicked(self.left_callback)
         self.right.button.on_clicked(self.right_callback)
-        
+
         self.upload.button.on_clicked(lambda *_: self.writer.upload())
         self.download.button.on_clicked(lambda *_: self.writer.download())
-        
+
+        self.fig.canvas.mpl_connect('close_event', lambda *_: self._close())
+        self.fig.canvas.manager.set_window_title('Channel %d' % self.writer.channel)
 
     def draw(self):
         # basic setup
@@ -185,37 +190,40 @@ class DDSSingleChannelBack:
         tb_freq_height = .1
         self.tb_freq = MyColorTextBox(
             [tb_freq_x, tb_freq_y, tb_freq_width, tb_freq_height],
-            step2digit(self.fine_step[0]),  # the colorbox requires the most significant digit
+            # the colorbox requires the most significant digit
+            step2digit(self.fine_step[0]),
             initial=self.cur_freq
         )
         self.tb_freq.addAnnotate(
             'Freq. (MHz)', (0, 1.15), annotation_clip=False)
-        
-        # Buttons to control significant digit: 
-        h_button_x = tb_freq_x + tb_freq_width / 2. 
-        h_button_y = tb_freq_y - tb_freq_height 
-        h_button_y_offset = -.03 
+
+        # Buttons to control significant digit:
+        h_button_x = tb_freq_x + tb_freq_width / 2.
+        h_button_y = tb_freq_y - tb_freq_height
+        h_button_y_offset = -.03
         h_button_x_offset = .02
         h_button_size = .1
 
-        self.right = MyButton([h_button_x+h_button_x_offset, h_button_y+h_button_y_offset, h_button_size * 3 / 4, h_button_size])
+        self.right = MyButton([h_button_x+h_button_x_offset, h_button_y +
+                              h_button_y_offset, h_button_size * 3 / 4, h_button_size])
         self.right.setArrow(0, 0, 1, 0, head_length=0.6)
 
-        self.left = MyButton([h_button_x-h_button_x_offset-h_button_size * 3 / 4, h_button_y+h_button_y_offset, h_button_size * 3 / 4, h_button_size])
+        self.left = MyButton([h_button_x-h_button_x_offset-h_button_size * 3 / 4,
+                             h_button_y+h_button_y_offset, h_button_size * 3 / 4, h_button_size])
         self.left.setArrow(0, 0, -1, 0, head_length=0.6)
 
-        # Buttons to upload Arduino EEPROM and readback 
+        # Buttons to upload Arduino EEPROM and readback
         upload_width = .18
-        upload_height = .1 
+        upload_height = .1
         upload_x = .1
         upload_y = .12
-        self.upload = MyButton([upload_x, upload_y, upload_width, upload_height], 'Upload')
+        self.upload = MyButton(
+            [upload_x, upload_y, upload_width, upload_height], 'Upload')
 
         download_x = .3
         download_width = .22
-        self.download = MyButton([download_x, upload_y, download_width, upload_height], 'Download')
-        
-
+        self.download = MyButton(
+            [download_x, upload_y, download_width, upload_height], 'Download')
 
     def up_callback(self, event):
         if self.fine_type:
@@ -242,20 +250,20 @@ class DDSSingleChannelBack:
     def left_callback(self, event):
         if self.fine_step[0] * 10 < 1:
             self.fine_step[0] *= 10
-            self.tb_freq.tb.highlight_digit -= 1 
-            self.tb_freq.tb._update_highlight_position(self.tb_freq.tb._chop_float('%.4f'%self.cur_freq))
+            self.tb_freq.tb.highlight_digit -= 1
+            self.tb_freq.tb._update_highlight_position(
+                self.tb_freq.tb._chop_float('%.4f' % self.cur_freq))
         else:
             print('Frequency step too large. Use type-in instead.')
-
 
     def right_callback(self, event):
         if self.tb_freq.tb.highlight_digit < 4:
             self.fine_step[0] *= .1
-            self.tb_freq.tb.highlight_digit += 1 
-            self.tb_freq.tb._update_highlight_position(self.tb_freq.tb._chop_float('%.4f'%self.cur_freq))
+            self.tb_freq.tb.highlight_digit += 1
+            self.tb_freq.tb._update_highlight_position(
+                self.tb_freq.tb._chop_float('%.4f' % self.cur_freq))
         else:
             print('Frequency step too small.')
-
 
     def slider_on_change(self, event):
         # on some version of matplotlib, slider.val returns numpy.float64, which causes trouble
@@ -271,7 +279,6 @@ class DDSSingleChannelBack:
             index = 1 - index
         for l in self.select.cbutton.lines[index]:
             l.set_visible(not l.get_visible())
-
 
     def textbox_on_submit(self, event):
         if not isfloat(event):
@@ -292,23 +299,24 @@ class DDSSingleChannelBack:
     def update_tb(self):
         self.tb_freq.tb.set_val(self.cur_freq)
 
-    def launch(self):
-        plt.show()
+    def _close(self):
         print('Terminating program...')
         print('Current freq. %.3f' % (self.cur_freq))
         print('Current phase %.3f' % (self.cur_phase))
         print('Arduino EEPROM reads:')
         self.writer.download()
 
-        if safe_yn_input('Do you want to upload current DDS params to Arduino([y]/n)?'):
+        if tk.messagebox.askyesno('', 'Do you want to upload current DDS params to Arduino?\n * Arduino has finite write cycle.', default='no'):
             self.writer.upload()
             self.writer.send_self_check()
 
         print('Please modify the entry in current_settings.csv as follows:')
-        print(self.writer.header+', '.join(['%.3f'%(DDSSingleChannelWriter.inverse_transform_frequency(f)/1e3) for f in self.writer.frequency] + ['%.1f'%(DDSSingleChannelWriter.inverse_transform_phase(p)) for p in self.writer.phase]))
-
-
+        print(self.writer.header+', '.join(['%.3f' % (DDSSingleChannelWriter.inverse_transform_frequency(f)/1e3)
+              for f in self.writer.frequency] + ['%.1f' % (DDSSingleChannelWriter.inverse_transform_phase(p)) for p in self.writer.phase]))
 
 
 if __name__ == '__main__':
-    DDSSingleChannelBack(DDSSingleChannelWriter('offline', 3)).launch()
+    ui1 = DDSSingleChannelBack(DDSSingleChannelWriter('local', 3, [0]))
+    ui2 = DDSSingleChannelBack(DDSSingleChannelWriter('local', 2, [1]))
+    plt.show()
+
