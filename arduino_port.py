@@ -10,7 +10,10 @@ def get_line_msg(ser):
     return ser.readline().decode('ansi')
 
 def get_line_bin(ser):
-    return ser.readline().strip()
+    # can't use plain return ser.readline().strip() 
+    # useful information may get lost! 
+    return ser.readline()[:-1]
+
 
 def which_port(iD):
     # Finds ports for user to select
