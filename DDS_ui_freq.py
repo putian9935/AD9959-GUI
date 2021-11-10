@@ -316,7 +316,13 @@ class DDSSingleChannelBack:
 
 
 if __name__ == '__main__':
-    ui1 = DDSSingleChannelBack(DDSSingleChannelWriter('local', 3, [0]))
-    ui2 = DDSSingleChannelBack(DDSSingleChannelWriter('local', 2, [1]))
+    # Example 1: tune for PDH signal
+    # Assume LO on channel 3 and EOM drive on channel 0
+    DDSSingleChannelBack(DDSSingleChannelWriter('local', 3, [0]))
+
+    # Example 2: four-channel sine-wave generator
+    # for ch in range(4):
+    #     DDSSingleChannelBack(DDSSingleChannelWriter('local', ch))
+        
     plt.show()
 
